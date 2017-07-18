@@ -27,12 +27,13 @@ UDP_PORT = 12345                # Reserve a port for your service.
 s = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_DGRAM) # UDP
 s.bind(("", UDP_PORT))
-data,addr = s.recvfrom(1024)
+#data,addr = s.recvfrom(1024)
 
 
-SimState  = None
+SimState  = "continue"
 ###########################Modes label functions############################
 def ModesRealTime():
+	data,addr = s.recvfrom(1024)
 	selection = "You selected Real Time" #+ str(var.get())
 	label.config(text = selection)
 	for child in SpTasks.winfo_children():
@@ -44,9 +45,14 @@ def ModesRealTime():
 	# c, addr = s.accept()     # Establish connection with client.
 	#c.send("RealTime")
 	s.sendto("RealTime",addr)
+	#while True:
+	#s.sendto(SimState.encode(), addr)
+	#	if SimState == "StopSim":
+	#		break
 
 def ModesSim():
-	global addr
+	data,addr = s.recvfrom(1024)
+	#global addr
 	global SimState
 	SimState = "continue"
 	#print data,addr
@@ -240,7 +246,7 @@ def ModesSpsTasks():
 	StopButton.config(state="disable")
 	# c, addr = s.accept()     # Establish connection with client.
 	#c.send("Tasks")
-	s.sendto("Tasks", addr)
+	#s.sendto("Tasks", addr)
 
 def ModesControlMotors():
 	for child in ConLbl.winfo_children():
@@ -255,33 +261,44 @@ def ModesControlMotors():
 def TasksOrPos():
 	selection = "You selected Original position"# + str(var.get())
 	label.config(text = selection)
+	s2 = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+	s.sendto("x1-22", ("192.168.43.161", 5001))
+	s.sendto("x237", ("192.168.43.161", 5001))
+	s.sendto("x3-43", ("192.168.43.161", 5001))
+	s.sendto("y325", ("192.168.43.161", 5001))
+	print "done"
 	#c, addr = s.accept()     # Establish connection with client.
 	#c.send("OriPos")
-	s.sendto("OriPos", addr)
+	#s.sendto("OriPos", addr)
 
 def TasksNinDeg():
 	selection = "You selected Ninteen Degree" #+ str(var.get())
 	label.config(text = selection)
+	s.sendto("x1-22", ("192.168.43.161", 5001))
+	s.sendto("x2-80", ("192.168.43.161", 5001))
+	s.sendto("x3120", ("192.168.43.161", 5001))
+	s.sendto("y325", ("192.168.43.161", 5001))
 	#c, addr = s.accept()     # Establish connection with client.
 	#c.send("NinDegree")
-	s.sendto("NinDegree", addr)
+	#s.sendto("NinDegree", addr)
 
 def TasksGripperMoving():
 	selection = "You selected Gripper Moving" #+ str(var.get())
 	label.config(text = selection)
 	#c, addr = s.accept()     # Establish connection with client.
 	#c.send("GripperMoving")
-	s.sendto("GripperMoving", addr)
+	#s.sendto("GripperMoving", addr)
 
 
 def QuitButtonHandle():
+	global addr
 	selection = "Good bye" #+ str(var.get())
 	label.config(text = selection)
 	# c, addr = s.accept()     # Establish connection with client.
 	#c.send("Exit")
-	s.sendto("Exit", addr)
+	#s.sendto("Exit", addr)
 	#c.close()
-	s.close()
+	#s.close()
 	root.quit()
 	os.kill(os.getpid(), signal.SIGTERM)
 	pass
@@ -300,6 +317,15 @@ def SendButtonHandle():
 	s2 = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 	print var3.get()+str(ValueSlider.get())
 	s.sendto(str(var3.get())+str(ValueSlider.get()), ("192.168.43.161", 5001))
+	pass
+
+def TempButtonHandle():
+	s2 = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+	##print var3.get()+str(ValueSlider.get())
+	s.sendto("Temp", ("192.168.43.161", 5001))
+	data,addr = s.recvfrom(1024)
+	print data
+	label.config(text = "Temperature is: "+str(int(data) - 5))
 	pass
 
 ###############################root window setup##########################
@@ -341,29 +367,33 @@ NinDegree = Tkinter.Radiobutton(SpTasks, text="90 Degree", variable=var2, value=
 NinDegree.pack( anchor = Tkinter.W)
 
 GripMove = Tkinter.Radiobutton(SpTasks, text="Gripper Moving", variable=var2, value=2,command=TasksGripperMoving)
-GripMove.pack( anchor = Tkinter.W )
+#GripMove.pack( anchor = Tkinter.W )
 
 ##############################Servos Radio Buttons##########################
-BaseBut = Tkinter.Radiobutton(ConLbl, text="Base", variable=var3, value="x0")
+BaseBut = Tkinter.Radiobutton(ConLbl, text="Shoulder Rotation 1", variable=var3, value="x0")
 BaseBut.pack()
 
-ShoulderBut = Tkinter.Radiobutton(ConLbl, text="Shoulder", variable=var3, value="x1")
+ShoulderBut = Tkinter.Radiobutton(ConLbl, text="Shoulder Rotation 2", variable=var3, value="x1")
 ShoulderBut.pack()
 
-ElbowBut = Tkinter.Radiobutton(ConLbl, text="Elbow", variable=var3, value="x2")
+ElbowBut = Tkinter.Radiobutton(ConLbl, text="Elbow Rotation", variable=var3, value="x2")
 ElbowBut.pack()
 
-RestRotBut = Tkinter.Radiobutton(ConLbl, text="Rest Rotation", variable=var3, value="x3")
+RestRotBut = Tkinter.Radiobutton(ConLbl, text="Wrist Rotation 1", variable=var3, value="x3")
 RestRotBut.pack()
 
-RestLinBut = Tkinter.Radiobutton(ConLbl, text="Rest Linear", variable=var3, value="y3")
+RestLinBut = Tkinter.Radiobutton(ConLbl, text="Wrist Rotation 2", variable=var3, value="y3")
 RestLinBut.pack()
 
-ValueSlider = Tkinter.Scale(ConLbl, from_=-120, to=90,resolution=1, orient=Tkinter.HORIZONTAL)
+GripBut = Tkinter.Radiobutton(ConLbl, text="Gripper", variable=var3, value="gp")
+GripBut.pack()
+
+ValueSlider = Tkinter.Scale(ConLbl, from_=-90, to=90,resolution=1, orient=Tkinter.HORIZONTAL)
 ValueSlider.pack()
 
 
 ####################################Buttons##############################
+TempButton = Tkinter.Button(root, text ="Show Temperature", command = TempButtonHandle)
 SendButton = Tkinter.Button(root, text ="Send", command = SendButtonHandle)
 StopButton = Tkinter.Button(root, text ="Stop", command = StopButtonHandle)
 QuitButton = Tkinter.Button(root, text ="Quit", command = QuitButtonHandle)
@@ -384,6 +414,7 @@ ModesGrpBox.pack( expand="yes")
 SpTasks.pack( expand="yes")
 ConLbl.pack( expand="yes")
 label.pack()
+TempButton.pack()
 SendButton.pack()
 StopButton.pack()
 QuitButton.pack()

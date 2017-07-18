@@ -7,115 +7,100 @@ import socket
 import smbus
 import math
 import os
-import time  
+import time
+
+def read_all(add):
+    raw_gyro_data = bus.read_i2c_block_data(add, 0x43, 6)
+    raw_accel_data = bus.read_i2c_block_data(add, 0x3b, 6)
+
+    gyro_scaled_x = twos_compliment((raw_gyro_data[0] << 8) + raw_gyro_data[1]) / gyro_scale
+    gyro_scaled_y = twos_compliment((raw_gyro_data[2] << 8) + raw_gyro_data[3]) / gyro_scale
+    gyro_scaled_z = twos_compliment((raw_gyro_data[4] << 8) + raw_gyro_data[5]) / gyro_scale
+ 
+    accel_scaled_x = twos_compliment((raw_accel_data[0] << 8) + raw_accel_data[1]) / accel_scale
+    accel_scaled_y = twos_compliment((raw_accel_data[2] << 8) + raw_accel_data[3]) / accel_scale
+    accel_scaled_z = twos_compliment((raw_accel_data[4] << 8) + raw_accel_data[5]) / accel_scale
+    
+    return(gyro_scaled_x,gyro_scaled_y,gyro_scaled_z,accel_scaled_x,accel_scaled_y,accel_scaled_z)
+#==========================================================
+def read_all_1(line):
+    
+    gyro_scaled_x = line[0] / gyro_scale
+    gyro_scaled_y = line[1] / gyro_scale
+    gyro_scaled_z = line[2] / gyro_scale
+ 
+    accel_scaled_x = line[3]
+    accel_scaled_y = line[4]
+    accel_scaled_z = line[5]
+    
+    return(gyro_scaled_x,gyro_scaled_y,gyro_scaled_z,accel_scaled_x,accel_scaled_y,accel_scaled_z)
+#==========================================================
+def twos_compliment(val):
+
+    if (val >= 0x8000):
+        return -((65535 - val) + 1)
+    else:
+        return val
+
+def get_y_rotation(x,y,z):
+    radians = math.atan2(x, dist(y,z))
+    return -math.degrees(radians)
+
+def get_x_rotation(x,y,z):
+    radians = math.atan2(y, dist(x,z))
+    return math.degrees(radians)
+
+def dist(a, b):
+    return math.sqrt((a * a) + (b * b))
+
+def read_sensor(number_of_sensor):
+    if number_of_sensor == 1:
+        GPIO.output(17, GPIO.LOW)
+        GPIO.output(18, GPIO.HIGH)
+        GPIO.output(22, GPIO.HIGH)
+    elif number_of_sensor == 2:
+        GPIO.output(17, GPIO.HIGH)
+        GPIO.output(18, GPIO.LOW)
+        GPIO.output(22, GPIO.HIGH)
+    elif number_of_sensor == 3:
+        GPIO.output(17, GPIO.HIGH)
+        GPIO.output(18, GPIO.HIGH)
+        GPIO.output(22, GPIO.LOW)
+        pass
+
+# Power management registers
+power_mgmt_1 = 0x6b
+power_mgmt_2 = 0x6c
+#==================================
+# Power management registers
+power_mgmt_1 = 0x6b
+power_mgmt_2 = 0x6c
+ 
+gyro_scale = 131.0
+accel_scale = 16384.0
+ 
+address = 0x68  # This is the default I2C address of ITG-MPU breakout board
+address2 = 0x69  
 pygame.init()
 pi = 3.14
-
-#s = socket.socket()         # Create a socket object
-#host = "10.42.0.154"#socket.gethostname() #"127.0.0.1" # Get local machine name
-port = 12345                # Reserve a port for your service.
-host = "10.42.0.1"
-#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#s.connect((host, port))
 s2 = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-UDP_IP = "10.42.0.1" #"192.168.43.161" #socket.gethostname() # Get local machine name
-UDP_PORT = 12345                # Reserve a port for your service.
+UDP_IP = "10.42.0.1"
+UDP_PORT = 12345                
+UDP_IP2 = "192.168.43.161"
+UDP_PORT2= 5001
 s2.sendto("Moha", (UDP_IP, UDP_PORT))
-#s2.connect((host2, port2))
 while True:
-    #recvd1 = s.recv(sys.getsizeof(float))
     recvd,addr = s2.recvfrom(1024)
     recvd1 = recvd.strip()
-    print recvd
+    print recvd1
     if recvd1 == "RealTime" or recvd1 == "Simulation":
-        if recvd1 == "RealTime":
-            print "In Real Time Mode"
-        ########### 
-        # connect AD0 for MPU 1 with 17 ,MPU 2 with 18 ,MPU 3 with 22
-        ###########
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(17, GPIO.OUT)
         GPIO.setup(18, GPIO.OUT)
         GPIO.setup(22, GPIO.OUT)
-
-        GPIO.output(17, GPIO.HIGH)
+        GPIO.output(17, GPIO.LOW)
         GPIO.output(18, GPIO.HIGH)
         GPIO.output(22, GPIO.HIGH)
-
-        def read_sensor(number_of_sensor):
-            if number_of_sensor == 1:
-                GPIO.output(17, GPIO.LOW)
-                GPIO.output(18, GPIO.HIGH)
-                GPIO.output(22, GPIO.HIGH)
-            elif number_of_sensor == 2:
-                GPIO.output(17, GPIO.HIGH)
-                GPIO.output(18, GPIO.LOW)
-                GPIO.output(22, GPIO.HIGH)
-            elif number_of_sensor == 3:
-                GPIO.output(17, GPIO.HIGH)
-                GPIO.output(18, GPIO.HIGH)
-                GPIO.output(22, GPIO.LOW)
-                pass
-
-        # Power management registers
-        power_mgmt_1 = 0x6b
-        power_mgmt_2 = 0x6c
-        #==================================
-        # Power management registers
-        power_mgmt_1 = 0x6b
-        power_mgmt_2 = 0x6c
-         
-        gyro_scale = 131.0
-        accel_scale = 16384.0
-         
-        address = 0x68  # This is the default I2C address of ITG-MPU breakout board
-        address2 = 0x69  
-
-        def read_all(add):
-            raw_gyro_data = bus.read_i2c_block_data(add, 0x43, 6)
-            raw_accel_data = bus.read_i2c_block_data(add, 0x3b, 6)
-
-            gyro_scaled_x = twos_compliment((raw_gyro_data[0] << 8) + raw_gyro_data[1]) / gyro_scale
-            gyro_scaled_y = twos_compliment((raw_gyro_data[2] << 8) + raw_gyro_data[3]) / gyro_scale
-            gyro_scaled_z = twos_compliment((raw_gyro_data[4] << 8) + raw_gyro_data[5]) / gyro_scale
-         
-            accel_scaled_x = twos_compliment((raw_accel_data[0] << 8) + raw_accel_data[1]) / accel_scale
-            accel_scaled_y = twos_compliment((raw_accel_data[2] << 8) + raw_accel_data[3]) / accel_scale
-            accel_scaled_z = twos_compliment((raw_accel_data[4] << 8) + raw_accel_data[5]) / accel_scale
-            
-            return(gyro_scaled_x,gyro_scaled_y,gyro_scaled_z,accel_scaled_x,accel_scaled_y,accel_scaled_z)
-        #==========================================================
-        def read_all_1(line):
-            
-            gyro_scaled_x = line[0] / gyro_scale
-            gyro_scaled_y = line[1] / gyro_scale
-            gyro_scaled_z = line[2] / gyro_scale
-         
-            accel_scaled_x = line[3]
-            accel_scaled_y = line[4]
-            accel_scaled_z = line[5]
-            
-            return(gyro_scaled_x,gyro_scaled_y,gyro_scaled_z,accel_scaled_x,accel_scaled_y,accel_scaled_z)
-        #==========================================================
-        def twos_compliment(val):
-
-            if (val >= 0x8000):
-                return -((65535 - val) + 1)
-            else:
-                return val
-
-        def get_y_rotation(x,y,z):
-            radians = math.atan2(x, dist(y,z))
-            return -math.degrees(radians)
-
-        def get_x_rotation(x,y,z):
-            radians = math.atan2(y, dist(x,z))
-            return math.degrees(radians)
-
-        def dist(a, b):
-            return math.sqrt((a * a) + (b * b))
-
-
         bus = smbus.SMBus(1)  # SMBus(1) for Raspberry pi 2 board
         adress = 0x68
 
@@ -127,7 +112,6 @@ while True:
         K = 0.98
         K1 = 1 - K
         time_diff = 0.01
-        #with open("foo.txt9") as f:
         ################# 1 #########################
         read_sensor(1)
         (gyro_scaled_x, gyro_scaled_y, gyro_scaled_z, accel_scaled_x, accel_scaled_y, accel_scaled_z) = read_all(address)
@@ -137,16 +121,18 @@ while True:
         gyro_offset_y = gyro_scaled_y
         gyro_total_x = (last_x) - gyro_offset_x
         gyro_total_y = (last_y) - gyro_offset_y
+#        time.sleep(1)
         ################### 2 ###############
         read_sensor(2)
         (gyro_scaled_x2, gyro_scaled_y2, gyro_scaled_z2, accel_scaled_x2, accel_scaled_y2, accel_scaled_z2) = read_all(address)
-        last_x2 = get_x_rotation(accel_scaled_x, accel_scaled_y, accel_scaled_z)
+        last_x2 = get_x_rotation(accel_scaled_x2, accel_scaled_y2, accel_scaled_z2)
         last_y2 = get_y_rotation(accel_scaled_x2, accel_scaled_y2, accel_scaled_z2)
 
         gyro_offset_x2 = gyro_scaled_x2
         gyro_offset_y2 = gyro_scaled_y2
         gyro_total_x2 = (last_x2) - gyro_offset_x2
         gyro_total_y2 = (last_y2) - gyro_offset_y2
+#        time.sleep(1)
         ############### 3 #####################
 
         read_sensor(3)
@@ -158,7 +144,7 @@ while True:
         gyro_offset_y3 = gyro_scaled_y3
         gyro_total_x3 = (last_x3) - gyro_offset_x3
         gyro_total_y3 = (last_y3) - gyro_offset_y3
-
+#        time.sleep(1)
 
         #========================
         while True:
@@ -207,6 +193,7 @@ while True:
             if delta_y > 2*pi:
                 delta_y = delta_y - 2*pi
                 delta_x = delta_x - 2*pi
+#            time.sleep(.001)
             ####################################################
 
             ####################### 2 ##########################
@@ -253,6 +240,7 @@ while True:
             if delta_y2 > 2*pi:
                 delta_y2 = delta_y2 - 2*pi
                 delta_x2 = delta_x2 - 2*pi
+#            time.sleep(.001)
         ###########################################################
 
         ################### 3 ###############################
@@ -299,49 +287,35 @@ while True:
             if delta_y3 > 2*pi:
                 delta_y3 = delta_y3 - 2*pi
                 delta_x3 = delta_x3 - 2*pi
+#            time.sleep(.001)
         #################################################################
          
             string1 = str(delta_x)
             string2 = str(delta_x2)
             string3 = str(delta_x3)
             string4 = str(delta_y3)
-
-            s2.sendto("x1"+string1.encode(), (UDP_IP, UDP_PORT))
-            s2.sendto("x2"+string2.encode(), (UDP_IP, UDP_PORT))
-            s2.sendto("x3"+string3.encode(), (UDP_IP, UDP_PORT))
-            s2.sendto("y3"+string4.encode(), (UDP_IP, UDP_PORT))
-#            s.send("x1"+string1.encode())
-#            print "1"
-#            s.send("x2"+string2.encode())
-#            print "2"
-#            s.send("x3"+string3.encode())
-#            print "3"
-#            s.send("y3"+string4.encode())
-#            print "4"
-            print "before recv"
-#            recvd3 = s.recv(sys.getsizeof(float))
-            recvd3,addr = s2.recvfrom(1024)
-            print recvd3,type(recvd3)
-            print "after recv"
-            if recvd3 == "StopSim":
-                break
-
-#        s.close
-    elif recvd1 == "Tasks":
-        #recvd2 = s.recv(sys.getsizeof(float))
-        recvd,addr = s2.recvfrom(1024)
-        recvd2 = recvd.strip()
-        if recvd2 == "OriPos":
-            print "Moving Arm to its original position"
-        elif recvd2 == "NinDegree":
-            print "Making 90 degree"
-        elif recvd2 == "GripperMoving":
-            print "Moving Grippper"
-	else:
-            recvd1 = recvd2
+            string5 = str(last_x)
+            string5 = string5[:5]
+            string6 = str(last_x2)
+            string6 = string6[:5]
+            string7 = str(last_x3)
+            string7 = string7[:5]
+            string8 = str(last_y3)
+            string8 = string8[:5]
+            if recvd1 == "RealTime":
+                s2.sendto("x1"+string5.encode(), (UDP_IP2, UDP_PORT2))
+                s2.sendto("x2"+string6.encode(), (UDP_IP2, UDP_PORT2))
+                s2.sendto("x3"+string7.encode(), (UDP_IP2, UDP_PORT2))
+                s2.sendto("y3"+string8.encode(), (UDP_IP2, UDP_PORT2))
+            else:
+                s2.sendto("x1"+string1.encode(), (UDP_IP, UDP_PORT))
+                s2.sendto("x2"+string2.encode(), (UDP_IP, UDP_PORT))
+                s2.sendto("x3"+string4.encode(), (UDP_IP, UDP_PORT))
+                s2.sendto("y3"+string3.encode(), (UDP_IP, UDP_PORT))
+            if recvd1 == "Simulation":
+                recvd3,addr = s2.recvfrom(1024)
+                if recvd3 == "StopSim":
+                    break
     elif recvd1 == "Exit":
         s2.close()
         break
-
-
-
